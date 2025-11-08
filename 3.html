@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Account — Anthropic</title>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    body{ font-family: "Google Sans", Roboto, Arial, sans-serif; margin:0; background:#f7fbff; color:#111;}
+    .wrap{ padding:28px; max-width:960px; margin:40px auto; }
+    .card{ background:#fff; padding:22px; border-radius:14px; box-shadow:0 8px 30px rgba(17,24,39,0.06); }
+    .row{ display:flex; gap:18px; align-items:center; justify-content:space-between; }
+    h2{ margin:0; font-weight:500; }
+    .meta{ color:#6b7280; margin-top:8px; }
+    button{ padding:10px 14px; border-radius:8px; border:none; background:#1a73e8; color:#fff; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <h2 id="name">Loading...</h2>
+          <div class="meta" id="email">—</div>
+          <div class="meta" id="id">ANTHROP\C ID: —</div>
+        </div>
+        <div>
+          <button id="logoutBtn">Log out</button>
+        </div>
+      </div>
+
+      <hr style="margin:18px 0; border:none; border-top:1px solid #eef2ff">
+
+      <div id="bodyContent">Welcome to your Anthropic account. This page is reachable after sign-in.</div>
+    </div>
+  </div>
+
+<script>
+  // Firebase config (your provided config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDL7sPp-FkG59L-mRQ7BrCGgeKMhQC80iw",
+    authDomain: "xperts-metadata.firebaseapp.com",
+    projectId: "xperts-metadata",
+    storageBucket: "xperts-metadata.firebasestorage.app",
+    messagingSenderId: "514845910910",
+    appId: "1:514845910910:web:5a2402130a97b5d749b52f",
+    measurementId: "G-CQ5KWGJSZB"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const nameEl = document.getElementById('name');
+  const emailEl = document.getElementById('email');
+  const idEl = document.getElementById('id');
+  const bodyContent = document.getElementById('bodyContent');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  // show profile if signed in; otherwise redirect to login
+  auth.onAuthStateChanged(async user => {
+    if(!user){
+      // not signed in
+      window.location.href = '1.html';
+      return;
+    }
+    const uid = user.uid;
+    // find user document by uid
+    const q = await db.collection('users').where('uid','==', uid).limit(1).get();
+    if(q.empty){
+      // fallback: maybe email-based only
+      nameEl.textContent = user.displayName || 'Anthropic user';
+      emailEl.textContent = user.email || '—';
+      idEl.textContent = 'ANTHROP\\C ID: —';
+      return;
+    }
+
+    const doc = q.docs[0];
+    const data = doc.data();
+    nameEl.textContent = (data.firstName || '') + ' ' + (data.lastName || '');
+    emailEl.textContent = data.email || user.email;
+    idEl.textContent = 'ANTHROP\\C ID: ' + (data.anthropicId || doc.id);
+    if(data.createdAt){
+      try {
+        const d = data.createdAt.toDate ? data.createdAt.toDate() : new Date();
+        bodyContent.innerHTML = '<strong>Member since</strong> ' + d.toDateString();
+      } catch(e){}
+    }
+  });
+
+  logoutBtn.onclick = async ()=> {
+    await auth.signOut();
+    window.location.href = '1.html';
+  };
+</script>
+</body>
+</html>
