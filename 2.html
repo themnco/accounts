@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Create your Anthropic account</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root{ --bg:#f5f7fb; --card:#fff; --accent:#1a73e8; --muted:#6b7280; --radius:12px;}
+    html,body{height:100%;margin:0;font-family: "Google Sans", Roboto, Arial, sans-serif; background:var(--bg);}
+    .wrap{min-height:100%; display:flex; align-items:center; justify-content:center; padding:36px;}
+    .card{ width:560px; background:var(--card); border-radius:var(--radius); padding:28px; box-shadow: 0 6px 24px rgba(17,24,39,0.08); }
+    .header { display:flex; gap:14px; align-items:center; }
+    .logo { width:48px; height:48px; border-radius:10px; background:linear-gradient(135deg,#7c4dff,#1a73e8); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:18px; }
+    h1{margin:0; font-weight:500; font-size:20px;}
+    p.lead{margin:6px 0 18px; color:var(--muted);}
+
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px; }
+    .full{ grid-column: 1 / -1; }
+
+    label{ font-size:12px; color:var(--muted); }
+    .input{ width:100%; padding:11px 12px; margin-top:6px; border-radius:8px; border:1px solid #e6e9ef; outline:none; font-size:15px; }
+    .input:focus{ box-shadow:0 2px 8px rgba(26,115,232,0.12); border-color:var(--accent); }
+
+    .email-preview{ margin-top:6px; font-size:13px; color:#0f172a; background:#f7fbff; padding:8px; border-radius:8px; border:1px dashed #dbeafe; display:flex; align-items:center; justify-content:space-between; }
+    .hint{ font-size:12px; color:var(--muted); margin-top:8px; }
+
+    .btn{ margin-top:16px; padding:12px; width:100%; border-radius:10px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+    .btn:disabled{ opacity:0.6; cursor:not-allowed; }
+
+    .footer{ margin-top:12px; text-align:center; color:var(--muted); font-size:13px; }
+    .notice{ margin-top:10px; color:#a94442; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="logo">A</div>
+        <div>
+          <h1>Create your Anthropic account</h1>
+          <p class="lead">Choose a username — your email will be <strong>username@comet.com</strong></p>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="grid">
+          <div>
+            <label for="firstName">First name</label>
+            <input id="firstName" class="input" placeholder="First name" autocomplete="given-name">
+          </div>
+          <div>
+            <label for="lastName">Last name</label>
+            <input id="lastName" class="input" placeholder="Last name" autocomplete="family-name">
+          </div>
+
+          <div>
+            <label for="dob">Date of birth</label>
+            <input id="dob" class="input" type="date" max="" >
+          </div>
+          <div>
+            <label for="gender">Gender</label>
+            <select id="gender" class="input">
+              <option value="">Choose</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option><option>Other</option>
+            </select>
+          </div>
+
+          <div class="full">
+            <label for="mobile">Mobile number</label>
+            <input id="mobile" class="input" placeholder="+91 98765 43210" autocomplete="tel">
+          </div>
+
+          <div style="grid-column:1/-1;">
+            <label for="username">Choose a username</label>
+            <input id="username" class="input" placeholder="e.g. alex" autocomplete="username">
+            <div class="email-preview" id="emailPreview">username@comet.com <span id="usernameStatus" style="font-size:13px;color:var(--muted)">— available</span></div>
+            <div class="hint">Letters, numbers, dots and underscores are allowed. This becomes your Anthropic email.</div>
+          </div>
+
+          <div>
+            <label for="password">Password</label>
+            <input id="password" class="input" type="password" placeholder="Create a strong password" autocomplete="new-password">
+          </div>
+          <div>
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" class="input" type="password" placeholder="Confirm password" autocomplete="new-password">
+          </div>
+        </div>
+
+        <button id="createBtn" class="btn">Create account</button>
+        <div id="message" class="notice" role="status" aria-live="polite"></div>
+        <div class="footer">Already have an account? <a href="1.html">Sign in</a></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Firebase config (your provided config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDL7sPp-FkG59L-mRQ7BrCGgeKMhQC80iw",
+    authDomain: "xperts-metadata.firebaseapp.com",
+    projectId: "xperts-metadata",
+    storageBucket: "xperts-metadata.firebasestorage.app",
+    messagingSenderId: "514845910910",
+    appId: "1:514845910910:web:5a2402130a97b5d749b52f",
+    measurementId: "G-CQ5KWGJSZB"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // DOM
+  const fnEl = document.getElementById('firstName');
+  const lnEl = document.getElementById('lastName');
+  const dobEl = document.getElementById('dob');
+  const genderEl = document.getElementById('gender');
+  const mobileEl = document.getElementById('mobile');
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
+  const confirmEl = document.getElementById('confirm');
+  const createBtn = document.getElementById('createBtn');
+  const emailPreview = document.getElementById('emailPreview');
+  const usernameStatus = document.getElementById('usernameStatus');
+  const message = document.getElementById('message');
+
+  // Set max DOB to today - 12 years (example minimum age), or just today if you don't want restrictions
+  const today = new Date().toISOString().split('T')[0];
+  dobEl.max = today;
+
+  // From query param: suggest username if provided
+  const params = new URLSearchParams(window.location.search);
+  const suggested = params.get('suggest');
+  if(suggested){
+    usernameEl.value = suggested.replace(/@.*$/,'').replace(/\s+/g,'').toLowerCase();
+    updatePreview();
+    checkAvailabilityDebounced();
+  }
+
+  // Helpers
+  function showMsg(txt, isErr=true){
+    message.style.color = isErr ? '#a94442' : '#1b5e20';
+    message.textContent = txt;
+  }
+
+  function sanitizeUsername(v){
+    return v.trim().toLowerCase().replace(/[^a-z0-9._]/g,'').replace(/^\.+|\.+$/g,'');
+  }
+
+  function updatePreview(){
+    const u = sanitizeUsername(usernameEl.value || 'username');
+    emailPreview.firstChild && (emailPreview.firstChild.textContent = u + '@comet.com');
+  }
+
+  // username availability check
+  let checkTimer = null;
+  async function checkAvailability(){
+    usernameStatus.textContent = 'checking...';
+    const raw = usernameEl.value || '';
+    const username = sanitizeUsername(raw);
+    if(!username){
+      usernameStatus.textContent = '— enter a username';
+      usernameStatus.style.color = '#6b7280';
+      return false;
+    }
+
+    // Check in users collection doc id
+    try {
+      const doc = await db.collection('users').doc(username).get();
+      if(doc.exists){
+        usernameStatus.textContent = '— taken';
+        usernameStatus.style.color = '#a94442';
+        return false;
+      } else {
+        usernameStatus.textContent = '— available';
+        usernameStatus.style.color = '#0f5132';
+        return true;
+      }
+    } catch(err){
+      console.error(err);
+      usernameStatus.textContent = '— error';
+      usernameStatus.style.color = '#a94442';
+      return false;
+    }
+  }
+
+  // debounce
+  function checkAvailabilityDebounced(){
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(()=> checkAvailability(), 500);
+  }
+
+  usernameEl.addEventListener('input', ()=>{
+    usernameEl.value = usernameEl.value.replace(/\s+/g,'').toLowerCase();
+    updatePreview();
+    checkAvailabilityDebounced();
+  });
+
+  // Create account
+  createBtn.onclick = async () => {
+    showMsg('', false);
+    const firstName = fnEl.value.trim();
+    const lastName = lnEl.value.trim();
+    const dob = dobEl.value;
+    const gender = genderEl.value;
+    const mobile = mobileEl.value.trim();
+    const rawUsername = usernameEl.value;
+    const username = sanitizeUsername(rawUsername);
+    const password = passwordEl.value;
+    const confirm = confirmEl.value;
+
+    if(!firstName || !lastName || !dob || !gender || !mobile || !username || !password || !confirm){
+      showMsg('Please fill all fields.');
+      return;
+    }
+    if(password !== confirm){ showMsg('Passwords do not match.'); return; }
+    if(password.length < 6){ showMsg('Password should be at least 6 characters.'); return; }
+
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating account...';
+
+    try {
+      // Final availability check (atomic: doc id)
+      const userDocRef = db.collection('users').doc(username);
+      const userDoc = await userDocRef.get();
+      if(userDoc.exists){
+        showMsg('Username is already taken. Choose another.');
+        createBtn.disabled = false; createBtn.textContent = 'Create account';
+        return;
+      }
+
+      const email = username + '@comet.com';
+
+      // Create auth user with email/password
+      const userCred = await auth.createUserWithEmailAndPassword(email, password);
+      const uid = userCred.user.uid;
+
+      // Save profile in Firestore under doc ID = username
+      await userDocRef.set({
+        uid,
+        anthropicId: username,
+        email: email.toLowerCase(),
+        firstName,
+        lastName,
+        dob,
+        gender,
+        mobile,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showMsg('Account created — signing in...', false);
+
+      // auto sign-in already; redirect
+      setTimeout(()=> window.location.href = 'https://abc.xyz', 1000);
+
+    } catch(err){
+      console.error(err);
+      // nicer messages for common errors
+      if(err && err.code === 'auth/email-already-in-use'){
+        showMsg('Email already in use. Try a different username.');
+      } else if(err && err.code === 'auth/weak-password'){
+        showMsg('Weak password. Choose a stronger one.');
+      } else {
+        showMsg(err.message || 'Failed to create account.');
+      }
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create account';
+    }
+  };
+</script>
+</body>
+</html>
