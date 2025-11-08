@@ -1,44 +1,78 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
 <title>Reset Password — Comet ID</title>
-
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
 <style>
-body{
-  font-family:"Google Sans",Roboto,Arial,sans-serif;
-  background:#f5f7fb; margin:0;
-  display:flex; justify-content:center; align-items:center;
-  height:100vh;
+body {
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  background: #f6f8fc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
 }
-.card{
-  background:white; padding:28px; border-radius:14px;
-  box-shadow:0 6px 24px rgba(17,24,39,0.08);
-  width:380px;
+.card {
+  background: white;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+  width: 360px;
+  text-align: center;
 }
-h2{margin:0 0 10px;}
-p{color:#555;}
-input,button{
-  width:100%; padding:10px; margin-top:10px;
-  border-radius:8px; border:1px solid #ccc;
+h2 {
+  color: #202124;
+  margin-bottom: 10px;
 }
-button{
-  background:#1a73e8; color:white; border:none; font-weight:600; cursor:pointer;
+p {
+  color: #5f6368;
+  font-size: 14px;
 }
-.notice{margin-top:12px; color:#a94442; font-size:14px;}
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border-radius: 6px;
+  border: 1px solid #dadce0;
+  font-size: 15px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 16px;
+  border: none;
+  border-radius: 6px;
+  background: #1a73e8;
+  color: white;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #1669c1;
+}
+.message {
+  margin-top: 15px;
+  color: #d93025;
+  font-size: 14px;
+}
 </style>
 </head>
 <body>
 <div class="card">
-  <h2>Reset Password</h2>
-  <p id="desc">Checking your account...</p>
-  <button id="sendBtn" style="display:none;">Send Reset Email</button>
-  <div id="message" class="notice"></div>
+  <h2>Change Password</h2>
+  <p id="infoText">Verifying your account...</p>
+  <div id="form" style="display:none;">
+    <input type="password" id="newPass" placeholder="New Password">
+    <input type="password" id="confirmPass" placeholder="Confirm Password">
+    <button id="updateBtn">Update Password</button>
+    <p id="message" class="message"></p>
+  </div>
 </div>
 
 <script>
@@ -52,48 +86,58 @@ const firebaseConfig = {
   measurementId: "G-CQ5KWGJSZB"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 const db = firebase.firestore();
 
-const desc = document.getElementById('desc');
-const sendBtn = document.getElementById('sendBtn');
-const message = document.getElementById('message');
+const infoText = document.getElementById("infoText");
+const form = document.getElementById("form");
+const message = document.getElementById("message");
 
-// Get ?id=<comet_id>
+// Get comet_id from URL
 const params = new URLSearchParams(window.location.search);
-const cometId = params.get('id');
+const cometId = params.get("id");
 
-if(!cometId){
-  desc.textContent = "Invalid link: missing user ID.";
+if (!cometId) {
+  infoText.textContent = "Invalid reset link — missing ID.";
 } else {
-  checkUser(cometId);
+  verifyUser(cometId);
 }
 
-async function checkUser(id){
-  try{
-    const doc = await db.collection('users').doc(id).get();
-    if(!doc.exists){
-      desc.textContent = "No account found for ID: " + id;
-      return;
+async function verifyUser(id) {
+  try {
+    const doc = await db.collection("users").doc(id).get();
+    if (doc.exists) {
+      infoText.innerHTML = `Account found for <b>${id}@comet.com</b>. Please enter a new password.`;
+      form.style.display = "block";
+    } else {
+      infoText.textContent = "No account found with this ID.";
     }
-    const email = doc.data().email;
-    desc.innerHTML = `We found your account <b>${email}</b>. Click below to send a password reset email.`;
-    sendBtn.style.display = 'block';
-
-    sendBtn.onclick = async ()=>{
-      try{
-        await auth.sendPasswordResetEmail(email);
-        message.style.color = "#1b5e20";
-        message.textContent = "Password reset link sent! Check your inbox.";
-      }catch(err){
-        message.style.color = "#a94442";
-        message.textContent = err.message;
-      }
-    };
-  }catch(err){
-    desc.textContent = "Error checking account: " + err.message;
+  } catch (err) {
+    infoText.textContent = "Error checking account: " + err.message;
   }
 }
+
+document.getElementById("updateBtn").onclick = async () => {
+  const newPass = document.getElementById("newPass").value.trim();
+  const confirmPass = document.getElementById("confirmPass").value.trim();
+
+  if (!newPass || !confirmPass) {
+    message.textContent = "Please fill out both fields.";
+    return;
+  }
+  if (newPass !== confirmPass) {
+    message.textContent = "Passwords do not match.";
+    return;
+  }
+
+  try {
+    await db.collection("users").doc(cometId).update({ password: newPass });
+    message.style.color = "#188038";
+    message.textContent = "Password updated successfully!";
+    setTimeout(() => (window.location.href = "1.html"), 1500);
+  } catch (err) {
+    message.textContent = "Error updating password: " + err.message;
+  }
+};
 </script>
 </body>
 </html>
