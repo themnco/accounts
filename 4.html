@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset Password — Comet ID</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<style>
+body{
+  font-family:"Google Sans",Roboto,Arial,sans-serif;
+  background:#f5f7fb; margin:0;
+  display:flex; justify-content:center; align-items:center;
+  height:100vh;
+}
+.card{
+  background:white; padding:28px; border-radius:14px;
+  box-shadow:0 6px 24px rgba(17,24,39,0.08);
+  width:380px;
+}
+h2{margin:0 0 10px;}
+p{color:#555;}
+input,button{
+  width:100%; padding:10px; margin-top:10px;
+  border-radius:8px; border:1px solid #ccc;
+}
+button{
+  background:#1a73e8; color:white; border:none; font-weight:600; cursor:pointer;
+}
+.notice{margin-top:12px; color:#a94442; font-size:14px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Reset Password</h2>
+  <p id="desc">Checking your account...</p>
+  <button id="sendBtn" style="display:none;">Send Reset Email</button>
+  <div id="message" class="notice"></div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDL7sPp-FkG59L-mRQ7BrCGgeKMhQC80iw",
+  authDomain: "xperts-metadata.firebaseapp.com",
+  projectId: "xperts-metadata",
+  storageBucket: "xperts-metadata.firebasestorage.app",
+  messagingSenderId: "514845910910",
+  appId: "1:514845910910:web:5a2402130a97b5d749b52f",
+  measurementId: "G-CQ5KWGJSZB"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const desc = document.getElementById('desc');
+const sendBtn = document.getElementById('sendBtn');
+const message = document.getElementById('message');
+
+// Get ?id=<comet_id>
+const params = new URLSearchParams(window.location.search);
+const cometId = params.get('id');
+
+if(!cometId){
+  desc.textContent = "Invalid link: missing user ID.";
+} else {
+  checkUser(cometId);
+}
+
+async function checkUser(id){
+  try{
+    const doc = await db.collection('users').doc(id).get();
+    if(!doc.exists){
+      desc.textContent = "No account found for ID: " + id;
+      return;
+    }
+    const email = doc.data().email;
+    desc.innerHTML = `We found your account <b>${email}</b>. Click below to send a password reset email.`;
+    sendBtn.style.display = 'block';
+
+    sendBtn.onclick = async ()=>{
+      try{
+        await auth.sendPasswordResetEmail(email);
+        message.style.color = "#1b5e20";
+        message.textContent = "Password reset link sent! Check your inbox.";
+      }catch(err){
+        message.style.color = "#a94442";
+        message.textContent = err.message;
+      }
+    };
+  }catch(err){
+    desc.textContent = "Error checking account: " + err.message;
+  }
+}
+</script>
+</body>
+</html>
