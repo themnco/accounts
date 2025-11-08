@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sign in — Anthropic / Comet</title>
+
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* Google-like minimal UI */
+    :root{
+      --bg:#f5f7fb; --card:#fff; --accent:#1a73e8; --muted:#6b7280;
+      --radius:12px;
+      font-family: "Google Sans", Roboto, Arial, sans-serif;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:#111;}
+    .wrap{
+      min-height:100%; display:flex; align-items:center; justify-content:center;
+      padding:40px;
+    }
+    .card{
+      width:420px; background:var(--card); border-radius:var(--radius);
+      box-shadow: 0 6px 24px rgba(17,24,39,0.08);
+      padding:28px; box-sizing:border-box;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .card:hover{ transform: translateY(-4px); box-shadow: 0 12px 40px rgba(17,24,39,0.10); }
+    h1{font-weight:500; margin:0 0 8px; font-size:20px;}
+    p.lead{margin:0 0 18px; color:var(--muted); font-size:13px;}
+
+    label{display:block; font-size:12px; color:var(--muted); margin-top:10px;}
+    .input{
+      width:100%; padding:12px 14px; margin-top:6px; border-radius:8px;
+      border:1px solid #e6e9ef; background:#fff; box-sizing:border-box;
+      font-size:15px; outline:none;
+      transition: box-shadow .12s ease, border-color .12s ease;
+    }
+    .input:focus{ box-shadow: 0 2px 8px rgba(26,115,232,0.12); border-color: var(--accent); }
+
+    .row{display:flex; gap:10px;}
+    .btn{
+      width:100%; margin-top:16px; padding:12px; border-radius:10px; border:none;
+      background:var(--accent); color:#fff; font-weight:600; cursor:pointer;
+      font-size:15px;
+    }
+    .btn.secondary{ background:#fff; color:var(--accent); border:1px solid #dbe7ff; }
+    .small{font-size:13px; color:var(--muted); margin-top:10px;}
+    .link{ color:var(--accent); text-decoration:none; cursor:pointer; }
+
+    .notice{ margin-top:12px; font-size:13px; color:#a94442; }
+    .muted-center{ text-align:center; color:var(--muted); margin-top:14px; font-size:13px; }
+
+    .footer { margin-top:18px; text-align:center; color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="main" aria-labelledby="signin-title">
+      <h1 id="signin-title">Sign in</h1>
+      <p class="lead">Use your ANTHROP\C ID (username) or your email <em>username@comet.com</em></p>
+
+      <label for="identifier">ANTHROP\C ID or Email</label>
+      <input id="identifier" class="input" placeholder="e.g. alex or alex@comet.com" autocomplete="username">
+
+      <div id="pw-block" style="display:none;">
+        <label for="password">Password</label>
+        <input id="password" class="input" type="password" placeholder="Enter your password" autocomplete="current-password">
+      </div>
+
+      <button id="continueBtn" class="btn">Continue</button>
+      <button id="signinBtn" class="btn" style="display:none;">Sign in</button>
+
+      <div class="muted-center">
+        <span id="createLink">Don't have an account? <a class="link" id="signupLink">Create account</a></span>
+      </div>
+
+      <div id="message" class="notice" role="status" aria-live="polite"></div>
+      <div class="footer">Secure sign-in powered by Firebase Authentication</div>
+    </div>
+  </div>
+
+<script>
+  // Firebase config (your provided config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDL7sPp-FkG59L-mRQ7BrCGgeKMhQC80iw",
+    authDomain: "xperts-metadata.firebaseapp.com",
+    projectId: "xperts-metadata",
+    storageBucket: "xperts-metadata.firebasestorage.app",
+    messagingSenderId: "514845910910",
+    appId: "1:514845910910:web:5a2402130a97b5d749b52f",
+    measurementId: "G-CQ5KWGJSZB"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const identifier = document.getElementById('identifier');
+  const password = document.getElementById('password');
+  const continueBtn = document.getElementById('continueBtn');
+  const signinBtn = document.getElementById('signinBtn');
+  const pwBlock = document.getElementById('pw-block');
+  const message = document.getElementById('message');
+  const signupLink = document.getElementById('signupLink');
+
+  // helper
+  function showMsg(txt, isError=true){
+    message.style.color = isError ? '#a94442' : '#1b5e20';
+    message.textContent = txt;
+  }
+
+  // When user clicks Create account
+  signupLink.onclick = ()=> {
+    const val = identifier.value.trim();
+    // if they entered a username already, pass it along to signup
+    let url = '2.html';
+    if(val) url += '?suggest=' + encodeURIComponent(val);
+    window.location.href = url;
+  };
+
+  // Continue — decide if the identifier is an email or username and check existence
+  continueBtn.onclick = async () => {
+    showMsg('', false);
+    const id = identifier.value.trim();
+    if(!id){ showMsg('Please enter a username or email.'); return; }
+
+    // if it looks like an email, try quickly to sign in by email existence
+    const isEmail = id.includes('@');
+
+    try {
+      if(isEmail){
+        // check if a Firebase Authentication account exists with that email by querying Firestore users
+        const q = await db.collection('users').where('email','==', id.toLowerCase()).limit(1).get();
+        if(!q.empty){
+          // show password input
+          pwBlock.style.display = 'block';
+          continueBtn.style.display = 'none';
+          signinBtn.style.display = 'block';
+          showMsg('Account found. Enter password to sign in.', false);
+        } else {
+          showMsg('No account found for that email. You can create one.', true);
+        }
+      } else {
+        // treat as username (ANTHROP\C ID). check users collection for anthropicId
+        const doc = await db.collection('users').doc(id).get();
+        if(doc.exists){
+          pwBlock.style.display = 'block';
+          continueBtn.style.display = 'none';
+          signinBtn.style.display = 'block';
+          showMsg('ID found. Enter password to sign in.', false);
+        } else {
+          showMsg('ID not registered. You can create a new account.', true);
+        }
+      }
+    } catch(err){
+      console.error(err);
+      showMsg('Error checking account. See console.');
+    }
+  };
+
+  // Sign-in button: resolve the email and call signInWithEmailAndPassword
+  signinBtn.onclick = async () => {
+    showMsg('', false);
+    const id = identifier.value.trim();
+    const pass = password.value;
+    if(!pass){ showMsg('Please enter your password.'); return; }
+
+    try {
+      let emailToUse = '';
+      if(id.includes('@')){
+        emailToUse = id.toLowerCase();
+      } else {
+        // lookup username -> email
+        const doc = await db.collection('users').doc(id).get();
+        if(!doc.exists){ showMsg('User not found.'); return; }
+        const data = doc.data();
+        if(!data || !data.email){ showMsg('Email not available for this ID.'); return; }
+        emailToUse = data.email;
+      }
+
+      // Sign in via Firebase Auth
+      await auth.signInWithEmailAndPassword(emailToUse, pass);
+
+      // on success redirect
+      showMsg('Sign in successful! Redirecting...', false);
+      setTimeout(()=> window.location.href = 'https://abc.xyz', 700);
+
+    } catch(err){
+      console.error(err);
+      const msg = (err && err.message) ? err.message : 'Sign in failed.';
+      showMsg(msg);
+    }
+  };
+
+  // allow Enter key
+  identifier.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') continueBtn.click(); });
+  password.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') signinBtn.click(); });
+</script>
+</body>
+</html>
